@@ -1,11 +1,6 @@
 import tkinter as tk
 import customtkinter as ctk
-
-
-# =========================================================
-# THEME
-# =========================================================
-
+# Theme
 BACKGROUND = "#F7F6FC"
 
 NAVY = "#282548"
@@ -38,20 +33,10 @@ CODE_BACKGROUND = "#24223F"
 CODE_TEXT = "#F7F6FF"
 
 OUTPUT_BACKGROUND = "#FFFFFF"
-
-
-# =========================================================
-# CUSTOMTKINTER
-# =========================================================
-
+# Customtkinter
 ctk.set_appearance_mode("light")
 ctk.set_default_color_theme("blue")
-
-
-# =========================================================
-# APP
-# =========================================================
-
+# App
 class TangibleProgrammingApp:
 
     def __init__(
@@ -62,11 +47,7 @@ class TangibleProgrammingApp:
 
         self.root = root
         self.capture_callback = capture_callback
-
-        # -------------------------------------------------
-        # WINDOW
-        # -------------------------------------------------
-
+        # Window
         self.root.title("Normania")
 
         self.root.geometry(
@@ -91,20 +72,11 @@ class TangibleProgrammingApp:
             1,
             weight=1
         )
-
-        # -------------------------------------------------
-        # BUILD
-        # -------------------------------------------------
-
+        # Build
         self.build_header()
 
         self.build_content()
-
-
-    # =====================================================
-    # HEADER
-    # =====================================================
-
+    # Header
     def build_header(self):
 
         header = ctk.CTkFrame(
@@ -126,11 +98,7 @@ class TangibleProgrammingApp:
             0,
             weight=1
         )
-
-        # -------------------------------------------------
-        # BRAND
-        # -------------------------------------------------
-
+        # Brand
         brand = ctk.CTkFrame(
             header,
             fg_color="transparent"
@@ -171,12 +139,7 @@ class TangibleProgrammingApp:
             anchor="w",
             pady=(2, 0)
         )
-
-
-    # =====================================================
-    # MAIN CONTENT
-    # =====================================================
-
+    # Main content
     def build_content(self):
 
         content = ctk.CTkFrame(
@@ -212,12 +175,7 @@ class TangibleProgrammingApp:
         self.build_results(
             content
         )
-
-
-    # =====================================================
-    # TOP STEPS
-    # =====================================================
-
+    # Top steps
     def build_steps(self, parent):
 
         steps = ctk.CTkFrame(
@@ -297,12 +255,7 @@ class TangibleProgrammingApp:
             color=GREEN,
             background=GREEN_SOFT
         )
-
-
-    # =====================================================
-    # STEP CARD
-    # =====================================================
-
+    # Step card
     def create_step(
         self,
         parent,
@@ -389,12 +342,7 @@ class TangibleProgrammingApp:
             sticky="nw",
             pady=(0, 22)
         )
-
-
-    # =====================================================
-    # STEP ARROW
-    # =====================================================
-
+    # Step arrow
     def create_arrow(
         self,
         parent,
@@ -416,12 +364,7 @@ class TangibleProgrammingApp:
             column=column,
             padx=6
         )
-
-
-    # =====================================================
-    # CAPTURE STATION
-    # =====================================================
-
+    # Capture station
     def build_capture_station(self, parent):
 
         station = ctk.CTkFrame(
@@ -452,12 +395,7 @@ class TangibleProgrammingApp:
             1,
             weight=4
         )
-
-
-        # -------------------------------------------------
-        # BOARD PREVIEW SIDE
-        # -------------------------------------------------
-
+        # Board preview side
         preview_area = ctk.CTkFrame(
             station,
             fg_color=BLUE_SOFT,
@@ -476,12 +414,7 @@ class TangibleProgrammingApp:
             1,
             weight=1
         )
-
-
-        # -------------------------------------------------
-        # MINI BOARD VISUAL
-        # -------------------------------------------------
-
+        # Mini board visual
         board_frame = ctk.CTkFrame(
             preview_area,
             fg_color="transparent"
@@ -506,12 +439,7 @@ class TangibleProgrammingApp:
         self.board_canvas.pack()
 
         self.draw_board_preview()
-
-
-        # -------------------------------------------------
-        # PREVIEW TEXT
-        # -------------------------------------------------
-
+        # Preview text
         preview_text = ctk.CTkFrame(
             preview_area,
             fg_color="transparent"
@@ -559,8 +487,8 @@ class TangibleProgrammingApp:
         preview_description = ctk.CTkLabel(
             preview_text,
             text=(
-                "This area will show your board\n"
-                "when camera capture is added."
+                "Press capture to open the camera.\n"
+                "Show all four corner markers."
             ),
             font=ctk.CTkFont(
                 size=11
@@ -572,12 +500,7 @@ class TangibleProgrammingApp:
         preview_description.pack(
             anchor="w"
         )
-
-
-        # -------------------------------------------------
-        # CAPTURE SIDE
-        # -------------------------------------------------
-
+        # Capture side
         capture_area = ctk.CTkFrame(
             station,
             fg_color="transparent"
@@ -669,12 +592,7 @@ class TangibleProgrammingApp:
             column=0,
             pady=(7, 0)
         )
-
-
-    # =====================================================
-    # DRAW MINI BOARD
-    # =====================================================
-
+    # Draw mini board
     def draw_board_preview(self):
 
         canvas = self.board_canvas
@@ -745,14 +663,7 @@ class TangibleProgrammingApp:
                 y,
                 fill="#D5EAF8"
             )
-
-
-        # -------------------------------------------------
-        # A FEW SAMPLE BLOCKS
-        #
-        # purely decorative
-        # -------------------------------------------------
-
+        # Decorative blocks
         blocks = [
             (0, 0, PURPLE),
             (0, 1, PINK),
@@ -799,12 +710,7 @@ class TangibleProgrammingApp:
                 fill=color,
                 outline=""
             )
-
-
-    # =====================================================
-    # RESULTS
-    # =====================================================
-
+    # Results
     def build_results(self, parent):
 
         results = ctk.CTkFrame(
@@ -842,12 +748,7 @@ class TangibleProgrammingApp:
         self.build_output_panel(
             results
         )
-
-
-    # =====================================================
-    # PYTHON PANEL
-    # =====================================================
-
+    # Python panel
     def build_python_panel(self, parent):
 
         card = ctk.CTkFrame(
@@ -862,12 +763,7 @@ class TangibleProgrammingApp:
             sticky="nsew",
             padx=(0, 10)
         )
-
-
-        # -------------------------------------------------
-        # HEADER
-        # -------------------------------------------------
-
+        # Header
         header = ctk.CTkFrame(
             card,
             fg_color="transparent"
@@ -912,12 +808,7 @@ class TangibleProgrammingApp:
             side="left",
             padx=12
         )
-
-
-        # -------------------------------------------------
-        # CODE TEXTBOX
-        # -------------------------------------------------
-
+        # Code textbox
         self.python_text = ctk.CTkTextbox(
             card,
             fg_color=CODE_BACKGROUND,
@@ -947,12 +838,7 @@ class TangibleProgrammingApp:
         self.python_text.configure(
             state="disabled"
         )
-
-
-    # =====================================================
-    # OUTPUT PANEL
-    # =====================================================
-
+    # Output panel
     def build_output_panel(self, parent):
 
         card = ctk.CTkFrame(
@@ -967,12 +853,7 @@ class TangibleProgrammingApp:
             sticky="nsew",
             padx=(10, 0)
         )
-
-
-        # -------------------------------------------------
-        # HEADER
-        # -------------------------------------------------
-
+        # Header
         header = ctk.CTkFrame(
             card,
             fg_color="transparent"
@@ -1017,12 +898,7 @@ class TangibleProgrammingApp:
             side="left",
             padx=12
         )
-
-
-        # -------------------------------------------------
-        # OUTPUT TEXTBOX
-        # -------------------------------------------------
-
+        # Output textbox
         self.output_text = ctk.CTkTextbox(
             card,
             fg_color=OUTPUT_BACKGROUND,
@@ -1051,18 +927,9 @@ class TangibleProgrammingApp:
         self.output_text.configure(
             state="disabled"
         )
-
-
-    # =====================================================
-    # CAPTURE
-    # =====================================================
-
+    # Capture
     def handle_capture(self):
-
-        # -------------------------------------------------
-        # PROCESSING STATE
-        # -------------------------------------------------
-
+        # Processing state
         self.capture_button.configure(
             text="READING BOARD...",
             state="disabled",
@@ -1078,18 +945,14 @@ class TangibleProgrammingApp:
 
 
         try:
-
-            # ---------------------------------------------
-            # MAIN APPLICATION CALLBACK
-            # ---------------------------------------------
-
-            self.capture_callback()
-
-
-            # ---------------------------------------------
-            # COMPLETE
-            # ---------------------------------------------
-
+            # Main application callback
+            if self.capture_callback() is False:
+                self.capture_status.configure(
+                    text="Capture cancelled.",
+                    text_color=TEXT_SECONDARY
+                )
+                return
+            # Complete
             self.capture_status.configure(
                 text="Capture complete!",
                 text_color=GREEN
@@ -1097,11 +960,7 @@ class TangibleProgrammingApp:
 
 
         except Exception:
-
-            # ---------------------------------------------
-            # ERROR
-            # ---------------------------------------------
-
+            # Error
             self.capture_status.configure(
                 text="Couldn't read the board. Try again.",
                 text_color=PINK
@@ -1111,22 +970,13 @@ class TangibleProgrammingApp:
 
 
         finally:
-
-            # ---------------------------------------------
-            # RESTORE BUTTON
-            # ---------------------------------------------
-
+            # Restore button
             self.capture_button.configure(
                 text="CAPTURE BOARD",
                 state="normal",
                 fg_color=PURPLE
             )
-
-
-    # =====================================================
-    # DISPLAY PYTHON
-    # =====================================================
-
+    # Display python
     def set_python_code(
         self,
         code
@@ -1149,12 +999,7 @@ class TangibleProgrammingApp:
         self.python_text.configure(
             state="disabled"
         )
-
-
-    # =====================================================
-    # DISPLAY OUTPUT
-    # =====================================================
-
+    # Display output
     def set_output(
         self,
         output
@@ -1177,12 +1022,7 @@ class TangibleProgrammingApp:
         self.output_text.configure(
             state="disabled"
         )
-
-
-    # =====================================================
-    # CLEAR
-    # =====================================================
-
+    # Clear
     def clear(self):
 
         self.set_python_code("")

@@ -6,12 +6,7 @@ from contextlib import redirect_stdout
 from App.app import TangibleProgrammingApp
 from App.imageProcess import ImageProcessor
 from Parsing.parse import Parser
-
-
-# =========================================================
-# PROGRAM EXECUTION
-# =========================================================
-
+# Program execution
 def execute_python(
     python_code
 ):
@@ -57,12 +52,7 @@ def execute_python(
             "Program Error:\n"
             + str(error)
         )
-
-
-# =========================================================
-# MAIN
-# =========================================================
-
+# Main
 def main():
 
     image_processor = ImageProcessor()
@@ -76,7 +66,10 @@ def main():
 
         try:
 
-            image = image_processor.get_image()
+            image = image_processor.get_image(parent=root)
+
+            if image is None:
+                return False
 
             aruco_matrix = (
                 image_processor.image_to_aruco_matrix(
@@ -139,6 +132,8 @@ def main():
                 "Error:\n"
                 + str(error)
             )
+
+            raise
 
 
     app = TangibleProgrammingApp(

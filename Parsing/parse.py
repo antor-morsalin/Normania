@@ -11,11 +11,11 @@ class Statement:
         self.statement_type = statement_type
 
 
-# PARSER
+# Parser
 
 class Parser:
 
-    # ARUCO MATRIX -> STATEMENT OBJECTS
+    # Build statements from the marker matrix
 
     def create_statements(self, aruco_matrix):
 
@@ -44,7 +44,7 @@ class Parser:
         return statements
 
 
-    # RAW ARUCO IDs -> PRIMARY TOKENS
+    # Translate marker IDs to tokens
 
     def translate_row(self, row):
 
@@ -69,7 +69,7 @@ class Parser:
         return tokens
 
 
-    # DETERMINE STATEMENT TYPE
+    # Determine statement type
 
     def get_statement_type(self, tokens):
 
@@ -109,8 +109,8 @@ class Parser:
             return "loop"
 
 
-        # OTHERWISE
-        # END
+        # Otherwise
+        # End
         if token_type in (
             "alternative_branch",
             "scope_closer"
@@ -122,7 +122,7 @@ class Parser:
             f"Could not determine statement type: {tokens}"
         )
 
-    # TRANSLATE ONE PRIMARY TOKEN -> PYTHON TOKEN
+    # Translate one token to Python
 
     def translate_token(self, token, context=None):
 
@@ -145,7 +145,7 @@ class Parser:
                 token_data["syntax"][context]
             )
 
-        # STRING LITERAL
+        # String literal
         if token_data["type"] == "string_literal":
 
             return repr(
@@ -319,12 +319,7 @@ class Parser:
     ):
 
         token = statement.statement[0]
-
-
-        # -------------------------------------------------
-        # OTHERWISE
-        # -------------------------------------------------
-
+        # Otherwise
         if token == "OTHERWISE":
 
 
@@ -370,12 +365,7 @@ class Parser:
 
 
             return line, indent_level
-
-
-        # -------------------------------------------------
-        # END
-        # -------------------------------------------------
-
+        # End
         if token == "END":
 
 
@@ -400,7 +390,7 @@ class Parser:
             f"Unknown auxiliary token: {token}"
         )
 
-    # STATEMENT OBJECTS -> COMPLETE PYTHON CODE
+    # Generate Python from the statements
 
     def convert_to_python(self, statements):
 
@@ -416,7 +406,7 @@ class Parser:
 
             statement_type = statement.statement_type
 
-            # AUXILIARY
+            # Auxiliary
             if statement_type == "auxiliary":
 
                 line, indent_level = self.handle_auxiliary(
@@ -434,7 +424,7 @@ class Parser:
                 continue
 
 
-            # GENERAL ASSIGNMENT
+            # General assignment
 
             if statement_type == "general_assignment":
 
@@ -443,7 +433,7 @@ class Parser:
                 )
 
 
-            # CONDITIONAL ASSIGNMENT
+            # Conditional assignment
 
             elif statement_type == "conditional_assignment":
 
@@ -452,7 +442,7 @@ class Parser:
                 )
 
 
-            # OUTPUT
+            # Output
 
             elif statement_type == "output":
 
@@ -470,7 +460,7 @@ class Parser:
                 )
 
 
-            # REPEAT
+            # Repeat
 
             elif statement_type == "loop":
 
@@ -492,7 +482,7 @@ class Parser:
             )
 
 
-            # OPEN NEW SCOPE
+            # Open new scope
 
             if statement_type == "conditional":
 
@@ -508,7 +498,7 @@ class Parser:
                 indent_level += 1
 
 
-        # MAKE SURE ALL SCOPES WERE CLOSED
+        # Make sure all scopes were closed
 
         if scope_stack:
 
