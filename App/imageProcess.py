@@ -15,7 +15,7 @@ if str(ROOT_DIR) not in sys.path:
 from Parsing.parse import Parser
 
 
-BOARD_ROWS = 7
+BOARD_ROWS = 6
 BOARD_COLUMNS = 5
 
 
@@ -34,7 +34,7 @@ BOARD_CORNER_IDS = {
 }
 
 
-# Board coordinates span 5 columns and 7 rows; each cell is one unit.
+# Board coordinates span 5 columns and 6 rows; each cell is one unit.
 
 LOGICAL_BOARD_CORNERS = np.float32([
     [0, 0],                              # top-left
@@ -497,7 +497,7 @@ class ImageProcessor:
         homography
     ):
 
-        """Build the 7 by 5 marker matrix; empty cells contain None."""
+        """Build the 6 by 5 marker matrix; empty cells contain None."""
 
 
         matrix = [
