@@ -605,8 +605,8 @@ class TangibleProgrammingApp:
         width = 90
         height = 108
 
-        columns = 6
-        rows = 8
+        columns = 5
+        rows = 7
 
         cell_width = width / columns
         cell_height = height / rows
