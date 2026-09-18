@@ -47,6 +47,7 @@ class TangibleProgrammingApp:
 
         self.root = root
         self.capture_callback = capture_callback
+        self.detected_rows = "Capture a board to see the detected instructions."
         # Window
         self.root.title("Normania")
 
@@ -369,7 +370,7 @@ class TangibleProgrammingApp:
 
         station = ctk.CTkFrame(
             parent,
-            height=195,
+            height=230,
             fg_color=WHITE,
             border_width=1,
             border_color=BORDER,
@@ -592,6 +593,13 @@ class TangibleProgrammingApp:
             column=0,
             pady=(7, 0)
         )
+        ctk.CTkButton(
+            capture_area,
+            text="VIEW DETECTED ROWS",
+            command=self.show_detected_rows,
+            height=24,
+            fg_color=NAVY_SOFT
+        ).grid(row=4, column=0, pady=(5, 0))
     # Draw mini board
     def draw_board_preview(self):
 
@@ -946,10 +954,17 @@ class TangibleProgrammingApp:
 
         try:
             # Main application callback
-            if self.capture_callback() is False:
+            result = self.capture_callback()
+            if result is False:
                 self.capture_status.configure(
                     text="Capture cancelled.",
                     text_color=TEXT_SECONDARY
+                )
+                return
+            if result == "program_error":
+                self.capture_status.configure(
+                    text="Board read. Check the program message below.",
+                    text_color=PINK
                 )
                 return
             # Complete
@@ -959,14 +974,15 @@ class TangibleProgrammingApp:
             )
 
 
-        except Exception:
+        except Exception as error:
             # Error
             self.capture_status.configure(
                 text="Couldn't read the board. Try again.",
                 text_color=PINK
             )
 
-            raise
+            self.set_python_code("")
+            self.set_output("Board Error:\n" + str(error))
 
 
         finally:
@@ -976,6 +992,19 @@ class TangibleProgrammingApp:
                 state="normal",
                 fg_color=PURPLE
             )
+    def set_detected_rows(self, matrix):
+        from App.imageProcess import format_rows
+        self.detected_rows = format_rows(matrix)
+
+    def show_detected_rows(self):
+        window = ctk.CTkToplevel(self.root)
+        window.title("Detected board rows")
+        window.geometry("700x270")
+        textbox = ctk.CTkTextbox(window, font=("Courier", 13))
+        textbox.pack(fill="both", expand=True, padx=16, pady=16)
+        textbox.insert("1.0", self.detected_rows)
+        textbox.configure(state="disabled")
+
     # Display python
     def set_python_code(
         self,

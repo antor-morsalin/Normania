@@ -1,512 +1,261 @@
+"""Validate physical rows before generating Python and matching scopes."""
+from dataclasses import dataclass
+from numbers import Integral
 from Data.arucoMap import ARUCO_TO_TOKEN
 from Data.syntaxMap import SYNTAX_MAP
 
+BOARD_ROWS, BOARD_COLUMNS = 6, 5
 
-# Simple data structure
 
+class ProgramValidationError(ValueError):
+    def __init__(self, message, row=None):
+        self.row = row
+        super().__init__(f"Row {row}: {message}" if row is not None else message)
+
+
+@dataclass
 class Statement:
+    statement: list
+    statement_type: str
+    row_number: int = None
 
-    def __init__(self, statement, statement_type):
-        self.statement = statement
-        self.statement_type = statement_type
 
+@dataclass
+class _Scope:
+    kind: str
+    row: int
+    has_body: bool = False
+    has_else: bool = False
 
-# Parser
 
 class Parser:
-
-    # Build statements from the marker matrix
+    """One statement per physical row; empty cells never become tokens."""
+    def __init__(self):
+        self.line_map = {}
 
     def create_statements(self, aruco_matrix):
-
+        if aruco_matrix is None:
+            raise ProgramValidationError("No board was read. Capture the board again.")
+        rows = list(aruco_matrix)
+        if len(rows) > BOARD_ROWS:
+            raise ProgramValidationError("The board supports at most 6 rows.")
         statements = []
-
-        for row in aruco_matrix:
-
-            # Convert ArUco IDs to primary human-readable tokens
-            tokens = self.translate_row(row)
-
-            # Ignore empty rows
-            if not tokens:
-                continue
-
-            # Determine what kind of statement this row is
-            statement_type = self.get_statement_type(tokens)
-
-            # Create Statement object
-            statement = Statement(
-                tokens,
-                statement_type
-            )
-
-            statements.append(statement)
-
+        for row_number, row in enumerate(rows, 1):
+            tokens = self.translate_row(row, row_number)
+            if tokens:
+                try:
+                    kind = self.get_statement_type(tokens)
+                except ProgramValidationError as error:
+                    raise ProgramValidationError(str(error), row_number) from error
+                statement = Statement(tokens, kind, row_number)
+                # Validate rows before scope errors can hide a missing token.
+                self.validate_statement(statement)
+                statements.append(statement)
         return statements
 
-
-    # Translate marker IDs to tokens
-
-    def translate_row(self, row):
-
+    def translate_row(self, row, row_number=None):
+        if row is None or isinstance(row, (str, bytes)):
+            raise ProgramValidationError("This is not a valid board row.", row_number)
+        try:
+            cells = list(row)
+        except TypeError as error:
+            raise ProgramValidationError("This is not a valid board row.", row_number) from error
+        if len(cells) > BOARD_COLUMNS:
+            raise ProgramValidationError("Keep each instruction within 5 cells.", row_number)
         tokens = []
-
-        for aruco_id in row:
-
-            # Empty board cell
-            if aruco_id is None:
+        for column, marker_id in enumerate(cells, 1):
+            if marker_id is None:
                 continue
-
-            # Unknown ArUco marker
-            if aruco_id not in ARUCO_TO_TOKEN:
-                raise ValueError(
-                    f"Unknown ArUco ID: {aruco_id}"
-                )
-
-            tokens.append(
-                ARUCO_TO_TOKEN[aruco_id]
-            )
-
+            if (isinstance(marker_id, bool) or not isinstance(marker_id, Integral)
+                    or marker_id not in ARUCO_TO_TOKEN):
+                raise ProgramValidationError(
+                    f"Unknown block {marker_id!r} in column {column}. Check its marker.", row_number)
+            tokens.append(ARUCO_TO_TOKEN[int(marker_id)])
         return tokens
 
-
-    # Determine statement type
-
     def get_statement_type(self, tokens):
+        if not tokens:
+            raise ProgramValidationError("This instruction is empty.")
+        first = tokens[0]
+        token_type = SYNTAX_MAP.get(first, {}).get("type")
+        types = {"general_variable": "general_assignment",
+                 "condition_variable": "conditional_assignment", "output_command": "output",
+                 "condition_opener": "conditional", "repeat_opener": "loop",
+                 "alternative_branch": "auxiliary", "scope_closer": "auxiliary"}
+        if token_type not in types:
+            raise ProgramValidationError(
+                f"An instruction cannot start with {first}. Check for a missing first block.")
+        return types[token_type]
 
-        first_token = tokens[0]
+    @staticmethod
+    def _is(token, *types):
+        return SYNTAX_MAP.get(token, {}).get("type") in types
 
-        if first_token not in SYNTAX_MAP:
-            raise ValueError(
-                f"Unknown token: {first_token}"
-            )
+    def _value(self, token):
+        return self._is(token, "general_variable", "number_literal", "string_literal")
 
-        token_type = SYNTAX_MAP[first_token]["type"]
+    def _comparison(self, tokens):
+        return (len(tokens) == 3 and self._value(tokens[0]) and self._value(tokens[2])
+                and (tokens[1] == "IS" or self._is(tokens[1], "comparison_operator")))
 
+    def _boolean(self, tokens):
+        return ((len(tokens) == 1 and self._is(tokens[0], "condition_variable"))
+                or (len(tokens) == 3 and tokens[1] in ("AND", "OR")
+                    and self._is(tokens[0], "condition_variable")
+                    and self._is(tokens[2], "condition_variable")))
 
-        # X IS 5
-        # X IS Y PLUS 3
-        if token_type == "general_variable":
-            return "general_assignment"
-
-
-        # CONDITION1 IS X MORE THAN 5
-        if token_type == "condition_variable":
-            return "conditional_assignment"
-
-
-        # SHOW X
-        if token_type == "output_command":
-            return "output"
-
-
-        # IF X MORE THAN 5 THEN
-        if token_type == "condition_opener":
-            return "conditional"
-
-
-        # REPEAT 3 TIMES
-        if token_type == "repeat_opener":
-            return "loop"
-
-
-        # Otherwise
-        # End
-        if token_type in (
-            "alternative_branch",
-            "scope_closer"
-        ):
-            return "auxiliary"
-
-
-        raise ValueError(
-            f"Could not determine statement type: {tokens}"
-        )
-
-    # Translate one token to Python
+    def validate_statement(self, statement):
+        tokens, row = statement.statement, statement.row_number
+        def fail(message):
+            raise ProgramValidationError(message, row)
+        if not tokens:
+            fail("This instruction is empty.")
+        for token in tokens:
+            if token not in SYNTAX_MAP:
+                fail(f"Unknown token: {token}.")
+        if len(tokens) > BOARD_COLUMNS:
+            fail("Keep each instruction within 5 cells; instructions cannot wrap to another row.")
+        try:
+            expected_type = self.get_statement_type(tokens)
+        except ProgramValidationError as error:
+            fail(str(error))
+        if statement.statement_type != expected_type:
+            fail("The instruction type does not match its first block.")
+        first = tokens[0]
+        if expected_type in ("general_assignment", "conditional_assignment"):
+            if len(tokens) < 2 or tokens[1] != "IS":
+                fail(f"{first} needs IS followed by a value. Check whether IS was missed by the camera.")
+            if expected_type == "conditional_assignment":
+                if not self._comparison(tokens[2:]):
+                    fail(f"Use {first} IS value comparison value, for example {first} IS X MORE THAN 5.")
+            elif not ((len(tokens) == 3 and self._value(tokens[2]))
+                      or (len(tokens) == 5 and self._value(tokens[2]) and self._value(tokens[4])
+                          and tokens[3] in ("PLUS", "MINUS", "TIMES", "DIVIDED BY"))):
+                fail(f"Use {first} IS value, or {first} IS value operator value. Check for a missing block.")
+        elif first == "SHOW":
+            if len(tokens) != 2 or not self._value(tokens[1]):
+                fail("SHOW needs exactly one value block (a number, message, or variable). "
+                     "If that block is already there, make its marker visible and recapture.")
+        elif first == "IF":
+            if tokens[-1] != "THEN":
+                fail("IF needs THEN at the end of this row. Check whether THEN was missed by the camera.")
+            if not (self._comparison(tokens[1:-1]) or self._boolean(tokens[1:-1])):
+                fail("Use IF X MORE THAN 5 THEN, IF CONDITION1 THEN, or "
+                     "IF CONDITION1 AND CONDITION2 THEN. Check for a missing value or comparison.")
+        elif first == "REPEAT":
+            if (len(tokens) != 3 or tokens[-1] != "TIMES"
+                    or not self._is(tokens[1], "number_literal", "general_variable")):
+                fail("Use REPEAT number TIMES or REPEAT variable TIMES. The value must be a whole number.")
+        elif len(tokens) != 1:
+            fail(f"{first} must be alone on its row; move the other blocks to a separate row.")
 
     def translate_token(self, token, context=None):
-
         if token not in SYNTAX_MAP:
-            raise ValueError(
-                f"Token not found in syntax map: {token}"
-            )
+            raise ProgramValidationError(f"Unknown token: {token}.")
+        data = SYNTAX_MAP[token]
+        syntax = data["syntax"]
+        if isinstance(syntax, dict):
+            if context not in syntax:
+                raise ProgramValidationError(f"{token} needs a valid statement context.")
+            syntax = syntax[context]
+        if data["type"] == "string_literal":
+            return repr(syntax)
+        return "" if syntax is None else str(syntax)
 
-        token_data = SYNTAX_MAP[token]
-
-        if token == "IS":
-
-            return str(
-                token_data["syntax"][context]
-            )
-
-        if token == "TIMES":
-
-            return str(
-                token_data["syntax"][context]
-            )
-
-        # String literal
-        if token_data["type"] == "string_literal":
-
-            return repr(
-                token_data["syntax"]
-            )
-
-        return str(
-            token_data["syntax"]
-        )
+    def _expression(self, tokens):
+        return " ".join(self.translate_token(
+            token, "comparison" if token == "IS" else "arithmetic" if token == "TIMES" else None
+        ) for token in tokens)
 
     def parse_general_assignment(self, statement):
+        self.validate_statement(statement)
+        tokens = statement.statement
+        return f"{self.translate_token(tokens[0])} = {self._expression(tokens[2:])}"
 
-        parsed_tokens = []
-
-        for token in statement.statement:
-
-            # IS means assignment here
-            if token == "IS":
-
-                parsed_tokens.append(
-                    self.translate_token(
-                        token,
-                        "assignment"
-                    )
-                )
-
-
-            # TIMES means multiplication here
-            elif token == "TIMES":
-
-                parsed_tokens.append(
-                    self.translate_token(
-                        token,
-                        "arithmetic"
-                    )
-                )
-
-
-            # Everything else can be translated directly
-            else:
-
-                parsed_tokens.append(
-                    self.translate_token(token)
-                )
-
-
-        return " ".join(parsed_tokens)
-
-
-    def parse_conditional_assignment(self, statement):
-
-        parsed_tokens = []
-
-        for index, token in enumerate(statement.statement):
-
-            if token == "IS":
-
-                if index == 1:
-
-                    parsed_tokens.append(
-                        self.translate_token(
-                            token,
-                            "assignment"
-                        )
-                    )
-
-
-                # Any IS inside the comparison means ==
-                else:
-
-                    parsed_tokens.append(
-                        self.translate_token(
-                            token,
-                            "comparison"
-                        )
-                    )
-
-
-            else:
-
-                parsed_tokens.append(
-                    self.translate_token(token)
-                )
-
-
-        return " ".join(parsed_tokens)
-
+    parse_conditional_assignment = parse_general_assignment
 
     def parse_output(self, statement):
-
-        tokens = statement.statement
-
-        command = self.translate_token(
-            tokens[0]
-        )
-
-        value = self.translate_token(
-            tokens[1]
-        )
-
-        return f"{command}({value})"
+        self.validate_statement(statement)
+        return f"print({self.translate_token(statement.statement[1])})"
 
     def parse_conditional(self, statement):
-
-        tokens = statement.statement
-
-        # Translate IF using the map
-        keyword = self.translate_token(
-            tokens[0]
-        )
-
-
-        # Everything between IF and THEN
-        condition_tokens = tokens[1:-1]
-
-        parsed_tokens = []
-
-
-        for token in condition_tokens:
-
-
-            # IS inside an IF always means equality
-            if token == "IS":
-
-                parsed_tokens.append(
-                    self.translate_token(
-                        token,
-                        "comparison"
-                    )
-                )
-
-
-            else:
-
-                parsed_tokens.append(
-                    self.translate_token(token)
-                )
-
-
-        condition = " ".join(parsed_tokens)
-
-
-        # THEN disappears.
-        # Colon is added manually.
-        return f"{keyword} {condition}:"
+        self.validate_statement(statement)
+        return f"if {self._expression(statement.statement[1:-1])}:"
 
     def parse_loop(self, statement):
-
-        tokens = statement.statement
-
-        # REPEAT maps to "for"
-        keyword = self.translate_token(
-            tokens[0]
-        )
-
-        # Number of repetitions
-        amount = self.translate_token(
-            tokens[1]
-        )
-
-
-        # TIMES is structural here.
-        # It is not translated into *.
-        return f"{keyword} _ in range({amount}):"
-
-    def handle_auxiliary(
-        self,
-        statement,
-        scope_stack,
-        indent_level
-    ):
-
-        token = statement.statement[0]
-        # Otherwise
-        if token == "OTHERWISE":
-
-
-            # Must have an open scope
-            if not scope_stack:
-
-                raise ValueError(
-                    "OTHERWISE used without an open IF."
-                )
-
-
-            # Nearest scope must be IF
-            if scope_stack[-1] != "if":
-
-                raise ValueError(
-                    "OTHERWISE must belong to an open IF."
-                )
-
-
-            # Leave the IF body indentation
-            indent_level -= 1
-
-
-            # OTHERWISE maps to "else"
-            keyword = self.translate_token(
-                token
-            )
-
-
-            line = (
-                "    " * indent_level
-                + f"{keyword}:"
-            )
-
-
-            # Change the open IF to ELSE
-            # so another OTHERWISE cannot be used
-            scope_stack[-1] = "else"
-
-
-            # Enter ELSE body
-            indent_level += 1
-
-
-            return line, indent_level
-        # End
-        if token == "END":
-
-
-            if not scope_stack:
-
-                raise ValueError(
-                    "END used without an open IF or REPEAT."
-                )
-
-
-            # Close nearest scope
-            scope_stack.pop()
-
-            indent_level -= 1
-
-
-            # END generates no Python code
-            return None, indent_level
-
-
-        raise ValueError(
-            f"Unknown auxiliary token: {token}"
-        )
-
-    # Generate Python from the statements
+        self.validate_statement(statement)
+        return f"for _ in range({self.translate_token(statement.statement[1])}):"
 
     def convert_to_python(self, statements):
-
-        python_lines = []
-
-        indent_level = 0
-
-        # Tracks open IF / ELSE / LOOP scopes
-        scope_stack = []
-
-
+        self.line_map = {}
+        statements = list(statements)
+        if len(statements) > BOARD_ROWS:
+            raise ProgramValidationError("The board supports at most 6 rows.")
+        for index, statement in enumerate(statements, 1):
+            if statement.row_number is None:
+                statement.row_number = index
+            self.validate_statement(statement)
+        lines, scopes = [], []
+        just_closed_if = None
+        def emit(text, depth, row):
+            lines.append("    " * depth + text)
+            self.line_map[len(lines)] = row
         for statement in statements:
-
-            statement_type = statement.statement_type
-
-            # Auxiliary
-            if statement_type == "auxiliary":
-
-                line, indent_level = self.handle_auxiliary(
-                    statement,
-                    scope_stack,
-                    indent_level
-                )
-
-
-                # END returns None because END produces no code
-                if line is not None:
-                    python_lines.append(line)
-
-
+            first, row = statement.statement[0], statement.row_number
+            # Support both IF / OTHERWISE / END and IF / END / OTHERWISE / END.
+            # An already-open IF takes precedence, preserving nested scope rules.
+            # A closed IF is eligible only for the next nonempty instruction.
+            if (first == "OTHERWISE" and just_closed_if is not None
+                    and (not scopes or scopes[-1].kind != "IF")):
+                scopes.append(just_closed_if)
+            just_closed_if = None
+            if first == "OTHERWISE":
+                if not scopes:
+                    raise ProgramValidationError(
+                        "OTHERWISE needs an open IF. Check that the IF row was detected.", row)
+                scope = scopes[-1]
+                if scope.kind != "IF":
+                    raise ProgramValidationError(
+                        f"Close REPEAT from row {scope.row} with END before OTHERWISE.", row)
+                if scope.has_else:
+                    raise ProgramValidationError(f"IF from row {scope.row} already has OTHERWISE.", row)
+                if not scope.has_body:
+                    raise ProgramValidationError(
+                        f"IF from row {scope.row} has no instruction before OTHERWISE. Check for a missed row.", row)
+                emit("else:", len(scopes) - 1, row)
+                scope.has_else, scope.has_body = True, False
                 continue
-
-
-            # General assignment
-
-            if statement_type == "general_assignment":
-
-                line = self.parse_general_assignment(
-                    statement
-                )
-
-
-            # Conditional assignment
-
-            elif statement_type == "conditional_assignment":
-
-                line = self.parse_conditional_assignment(
-                    statement
-                )
-
-
-            # Output
-
-            elif statement_type == "output":
-
-                line = self.parse_output(
-                    statement
-                )
-
-
-            # IF
-
-            elif statement_type == "conditional":
-
-                line = self.parse_conditional(
-                    statement
-                )
-
-
-            # Repeat
-
-            elif statement_type == "loop":
-
-                line = self.parse_loop(
-                    statement
-                )
-
-
-            else:
-
-                raise ValueError(
-                    f"Unknown statement type: {statement_type}"
-                )
-
-
-            python_lines.append(
-                "    " * indent_level
-                + line
-            )
-
-
-            # Open new scope
-
-            if statement_type == "conditional":
-
-                scope_stack.append("if")
-
-                indent_level += 1
-
-
-            elif statement_type == "loop":
-
-                scope_stack.append("loop")
-
-                indent_level += 1
-
-
-        # Make sure all scopes were closed
-
-        if scope_stack:
-
-            raise ValueError(
-                "Program ended before an IF or REPEAT "
-                "was closed with END."
-            )
-
-
-        # Convert list of Python lines into one Python program
-        return "\n".join(python_lines)
+            if first == "END":
+                if not scopes:
+                    raise ProgramValidationError(
+                        "END has no open IF or REPEAT to close. Check that the opening row was "
+                        "detected and that there is only one END per structure.", row)
+                scope = scopes[-1]
+                if not scope.has_body:
+                    branch = "OTHERWISE" if scope.has_else else scope.kind
+                    raise ProgramValidationError(
+                        f"{branch} from the structure at row {scope.row} needs an instruction before END. "
+                        "Check for a missed row.", row)
+                scopes.pop()
+                if scope.kind == "IF" and not scope.has_else:
+                    just_closed_if = scope
+                continue
+            if scopes:
+                scopes[-1].has_body = True
+            translator = {"general_assignment": self.parse_general_assignment,
+                          "conditional_assignment": self.parse_conditional_assignment,
+                          "output": self.parse_output, "conditional": self.parse_conditional,
+                          "loop": self.parse_loop}[statement.statement_type]
+            emit(translator(statement), len(scopes), row)
+            if first in ("IF", "REPEAT"):
+                scopes.append(_Scope(first, row))
+        if scopes:
+            scope = scopes[-1]
+            raise ProgramValidationError(f"{scope.kind} needs a matching END before the board ends.", scope.row)
+        code = "\n".join(lines)
+        try:
+            compile(code, "<Normania>", "exec")
+        except SyntaxError as error:
+            raise ProgramValidationError("This instruction could not be compiled.",
+                                         self.line_map.get(error.lineno)) from error
+        return code

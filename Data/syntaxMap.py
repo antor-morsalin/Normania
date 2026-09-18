@@ -136,6 +136,13 @@ SYNTAX_MAP = {
 
     # STRINGS
 
+    "MY NAME IS": {
+        "type": "string_literal",
+        "syntax": "MY NAME IS",
+        "group": "data",
+        "value_type": "string"
+    },
+
     "HELLO": {
         "type": "string_literal",
         "syntax": "HELLO",
